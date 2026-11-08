@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Archive</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230b0b12'/><text x='50%' y='54%' dominant-baseline='central' text-anchor='middle' font-size='68' fill='%236366f1'>◈</text></svg>">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #070709;
+            color: #e4e4e7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        body.reader-mode {
+            background-color: #000000;
+        }
+        #reading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            width: 0%;
+            z-index: 1100;
+            transition: width 0.1s ease;
+            display: none;
+        }
+        body.reader-mode #reading-progress {
+            display: block;
+        }
+        .top-header {
+            background: rgba(12, 12, 18, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid #1f1f29;
+            padding: 14px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .nav-back-btn {
+            background: #15151e;
+            border: 1px solid #2b2b3a;
+            color: #d4d4d8;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .nav-back-btn:hover {
+            background: #232332;
+            border-color: #6366f1;
+            color: #ffffff;
+        }
+        .brand {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: none;
+        }
+        .brand-logo {
+            font-size: 20px;
+            color: #818cf8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Removed background, border, and width/height boxes */
+        }
+        .view {
+            display: none;
+        }
+        .view.active {
+            display: block;
+        }
+        .page-wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+        .section-heading {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 24px 0;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .novel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 28px;
+        }
+        .novel-card {
+            background: #111116;
+            border: 1px solid #22222c;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .novel-card:hover {
+            transform: translateY(-5px);
+            border-color: #6366f1;
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
+        }
+        .card-cover-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 3 / 4.2;
+            background: #191922;
+            overflow: hidden;
+        }
+        .card-cover-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        .novel-card:hover .card-cover-wrap img {
+            transform: scale(1.04);
+        }
+        .card-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(10, 10, 14, 0.85);
+            border: 1px solid #333344;
+            color: #a5b4fc;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+        .card-continue {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: #6366f1;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        .card-body {
+            padding: 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 8px 0;
+            line-height: 1.4;
+        }
+        .card-sub {
+            font-size: 13px;
+            color: #8b8b99;
+        }
+        .novel-hero {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 40px;
+            background: linear-gradient(145deg, #111118 0%, #0b0b10 100%);
+            border: 1px solid #222230;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 36px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+        @media (max-width: 768px) {
+            .novel-hero {
+                grid-template-columns: 1fr;
+            }
+        }
+        .novel-left {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .novel-cover {
+            width: 100%;
+            aspect-ratio: 3 / 4.2;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 1px solid #2e2e3e;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            background: #181820;
+        }
+        .action-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #ffffff;
+            border: none;
+            padding: 13px 20px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
+            text-align: center;
+            width: 100%;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.45);
+        }
+        .meta-box {
+            background: #15151e;
+            border: 1px solid #252533;
+            border-radius: 10px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .meta-item-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #7c7c8a;
+            margin-bottom: 4px;
+        }
+        .meta-item-value {
+            font-size: 14px;
+            color: #e4e4e7;
+            line-height: 1.5;
+        }
+        .genre-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .genre-tag {
+            background: #1f1f2e;
+            border: 1px solid #32324a;
+            color: #c7d2fe;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+        .novel-right {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .novel-main-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        .info-block h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #a5b4fc;
+            margin: 0 0 10px 0;
+            border-bottom: 1px solid #222230;
+            padding-bottom: 8px;
+        }
+        .info-block p {
+            font-size: 16px;
+            line-height: 1.75;
+            color: #d4d4d8;
+            margin: 0 0 12px 0;
+        }
+        .alt-names-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: #bdbdc7;
+            font-size: 15px;
+        }
+        .recent-panel {
+            background: linear-gradient(145deg, #14141d 0%, #101017 100%);
+            border: 1px solid #28283c;
+            border-radius: 12px;
+            padding: 18px 20px;
+        }
+        .recent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .recent-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #a5b4fc;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .clear-recent-btn {
+            background: transparent;
+            border: 1px solid #2e2e40;
+            color: #8b8b9e;
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .clear-recent-btn:hover {
+            color: #ffffff;
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .recent-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .recent-chip {
+            background: #1c1c28;
+            border: 1px solid #323248;
+            border-radius: 8px;
+            padding: 9px 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .recent-chip:hover {
+            background: #262638;
+            border-color: #6366f1;
+            transform: translateY(-2px);
+        }
+        .recent-chip.latest {
+            background: rgba(99, 102, 241, 0.16);
+            border-color: #6366f1;
+        }
+        .recent-chip-num {
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .recent-chip-badge {
+            font-size: 10px;
+            font-weight: 700;
+            color: #a5b4fc;
+            background: rgba(99, 102, 241, 0.25);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .recent-empty {
+            font-size: 14px;
+            color: #6c6c7c;
+            font-style: italic;
+        }
+        .chapter-panel {
+            background: #111116;
+            border: 1px solid #222230;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .chapter-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #222230;
+        }
+        .chapter-panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0;
+        }
+        .chapter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .chapter-search {
+            background: #191922;
+            border: 1px solid #2e2e3e;
+            color: #ffffff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            width: 180px;
+        }
+        .chapter-search:focus {
+            border-color: #6366f1;
+        }
+        .chapter-list-scroll {
+            max-height: 420px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+            gap: 10px;
+            padding-right: 6px;
+        }
+        .chapter-pill {
+            background: #181820;
+            border: 1px solid #262635;
+            border-radius: 8px;
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chapter-pill:hover {
+            background: #232332;
+            border-color: #6366f1;
+            transform: translateY(-2px);
+        }
+        .chapter-pill.last-read {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.14);
+        }
+        .chapter-pill-num {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f4f4f6;
+        }
+        .chapter-pill-tag {
+            font-size: 11px;
+            color: #818cf8;
+            font-weight: 700;
+        }
+        button {
+            background-color: #16161f;
+            color: #ffffff;
+            border: 1px solid #2e2e3e;
+            padding: 9px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        button:hover {
+            background-color: #232332;
+            border-color: #6366f1;
+        }
+        button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .reader-shell {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 28px 20px 80px 20px;
+        }
+        .reader-toolbar {
+            background: rgba(18, 18, 26, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid #232334;
+            border-radius: 14px;
+            padding: 12px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 36px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+            position: relative;
+            z-index: 50;
+            overflow: visible; /* <-- Add this line */
+        }
+        .reader-nav-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .reader-nav-btn {
+            background: #1c1c28;
+            border: 1px solid #303044;
+            color: #e4e4e7;
+            padding: 9px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .reader-nav-btn:hover:not(:disabled) {
+            background: #6366f1;
+            border-color: #6366f1;
+            color: #ffffff;
+        }
+        .font-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #14141d;
+            border: 1px solid #262636;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .font-btn {
+            background: transparent;
+            border: none;
+            color: #a1a1b5;
+            padding: 5px 10px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 6px;
+        }
+        .font-btn:hover {
+            background: #232334;
+            color: #ffffff;
+        }
+        .font-size-label {
+            font-size: 12px;
+            color: #7c7c8e;
+            min-width: 36px;
+            text-align: center;
+            font-family: monospace;
+        }
+        .combo-wrapper {
+            position: relative;
+            width: 195px;
+        }
+        .combo-box {
+            display: flex;
+            align-items: center;
+            background-color: #14141d;
+            border: 1px solid #303044;
+            border-radius: 8px;
+            transition: border-color 0.15s ease;
+        }
+        .combo-box:focus-within, .combo-box:hover {
+            border-color: #6366f1;
+            background-color: #191925;
+        }
+        #chapter-input {
+            background: transparent;
+            color: #ffffff;
+            border: none;
+            padding: 9px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            width: 100%;
+            text-align: center;
+            outline: none;
+        }
+        #dropdown-toggle {
+            background: transparent;
+            border: none;
+            border-left: 1px solid #262636;
+            color: #9999ad;
+            padding: 9px 12px;
+            cursor: pointer;
+            border-radius: 0 8px 8px 0;
+        }
+        #dropdown-toggle:hover {
+            color: #ffffff;
+            background-color: #232334;
+        }
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            max-height: 280px;
+            overflow-y: auto;
+            background-color: #13131c;
+            border: 1px solid #34344a;
+            border-radius: 10px;
+            z-index: 1000;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.85);
+            padding: 4px;
+        }
+        .dropdown-menu.open {
+            display: block;
+        }
+        .dropdown-item {
+            padding: 8px 14px;
+            font-family: sans-serif;
+            font-size: 14px;
+            color: #c4c4d4;
+            cursor: pointer;
+            text-align: center;
+            border-radius: 6px;
+        }
+        .dropdown-item:hover {
+            background-color: #232334;
+            color: #ffffff;
+        }
+        .dropdown-item.active {
+            background-color: #6366f1;
+            color: #ffffff;
+            font-weight: 700;
+        }
+        .chapter-header-card {
+            text-align: center;
+            padding: 28px 20px 32px 20px;
+            margin-bottom: 36px;
+            border-bottom: 1px solid #191924;
+            position: relative;
+        }
+        .chapter-novel-kicker {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #818cf8;
+            margin-bottom: 10px;
+        }
+        #chapter-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0 0 12px 0;
+            letter-spacing: 0.3px;
+        }
+        #debug-url {
+            font-family: monospace;
+            font-size: 12px;
+            color: #525266;
+            text-decoration: none;
+            display: inline-block;
+            background: #0c0c12;
+            border: 1px solid #1b1b26;
+            padding: 4px 12px;
+            border-radius: 999px;
+        }
+        #debug-url a {
+            color: #6e6e85;
+            text-decoration: none;
+        }
+        #debug-url a:hover {
+            color: #a5b4fc;
+        }
+        #chapter-content {
+            font-family: Georgia, "Times New Roman", serif;
+            line-height: 1.9;
+            font-size: 20px;
+            color: #e4e4e7;
+            padding: 0 8px;
+        }
+        #chapter-content p {
+            margin: 0 0 26px 0;
+        }
+        .chapter-end-ornament {
+            text-align: center;
+            color: #444458;
+            font-size: 18px;
+            letter-spacing: 10px;
+            margin: 48px 0 36px 0;
+            user-select: none;
+        }
+        .bottom-nav-dock {
+            background: #0d0d14;
+            border: 1px solid #222232;
+            border-radius: 14px;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        .bottom-nav-btn {
+            background: #171722;
+            border: 1px solid #2d2d42;
+            color: #ffffff;
+            padding: 13px 26px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            min-width: 140px;
+        }
+        .bottom-nav-btn.primary {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border-color: #6366f1;
+        }
+        .bottom-nav-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+        }
+        .key-hint {
+            font-size: 12px;
+            color: #626275;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="reading-progress"></div>
+
+    <header class="top-header">
+        <div class="header-left">
+            <div class="header-actions" id="header-back-group" style="display: none;">
+                <button id="back-to-novel-btn" class="nav-back-btn" style="display: none;">← Novel Info</button>
+                <button id="back-to-library-btn" class="nav-back-btn" style="display: none;">← Library</button>
+            </div>
+            <div class="brand" id="nav-home">
+                <div class="brand-logo">◈</div>
+                <span>NOVEL ARCHIVE</span>
+            </div>
+        </div>
+    </header>
+
+    <main id="home-view" class="view active">
+        <div class="page-wrap">
+            <h2 class="section-heading">Available Novels</h2>
+            <div class="novel-grid" id="novel-grid"></div>
+        </div>
+    </main>
+
+    <main id="novel-view" class="view">
+        <div class="page-wrap">
+            <div class="novel-hero">
+                <div class="novel-left">
+                    <img id="detail-cover" class="novel-cover" src="" alt="Novel Cover">
+                    <button id="continue-reading-btn" class="action-btn">Start Reading</button>
+                    <div class="meta-box">
+                        <div>
+                            <div class="meta-item-label">Type</div>
+                            <div class="meta-item-value" id="detail-type"></div>
+                        </div>
+                        <div>
+                            <div class="meta-item-label">Genre</div>
+                            <div class="genre-tags" id="detail-genres"></div>
+                        </div>
+                        <div>
+                            <div class="meta-item-label">Author</div>
+                            <div class="meta-item-value" id="detail-author"></div>
+                        </div>
+                        <div>
+                            <div class="meta-item-label">Status</div>
+                            <div class="meta-item-value" id="detail-status"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="novel-right">
+                    <h1 class="novel-main-title" id="detail-title"></h1>
+
+                    <div class="info-block">
+                        <h3>Description</h3>
+                        <div id="detail-description"></div>
+                    </div>
+
+                    <div class="info-block">
+                        <h3>Associated Names</h3>
+                        <ul class="alt-names-list" id="detail-alt-names"></ul>
+                    </div>
+
+                    <div class="recent-panel">
+                        <div class="recent-header">
+                            <h4 class="recent-title"><span>◈</span> Recently Viewed Chapters</h4>
+                            <button id="clear-recent-btn" class="clear-recent-btn">Clear</button>
+                        </div>
+                        <div class="recent-chips" id="recent-chapters-list"></div>
+                    </div>
+
+                    <div class="chapter-panel">
+                        <div class="chapter-panel-header">
+                            <h3 class="chapter-panel-title" id="chapter-count-label">List of Chapters</h3>
+                            <div class="chapter-controls">
+                                <input type="text" id="novel-chapter-search" class="chapter-search" placeholder="Filter chapter #...">
+                                <button id="sort-toggle-btn">Sort: Newest ↓</button>
+                            </div>
+                        </div>
+                        <div class="chapter-list-scroll" id="novel-chapter-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="reader-view" class="view">
+        <div class="reader-shell">
+            <div class="reader-toolbar">
+                <div class="reader-nav-group">
+                    <button id="prev-top" class="reader-nav-btn">← Prev</button>
+
+                    <div class="combo-wrapper" id="combo-wrapper">
+                        <div class="combo-box">
+                            <input type="text" id="chapter-input" value="Chapter 301" autocomplete="off">
+                            <button type="button" id="dropdown-toggle">▾</button>
+                        </div>
+                        <div class="dropdown-menu" id="dropdown-menu"></div>
+                    </div>
+
+                    <button id="next-top" class="reader-nav-btn">Next →</button>
+                </div>
+
+                <div class="font-controls">
+                    <button id="font-dec" class="font-btn" title="Decrease font size">A−</button>
+                    <span id="font-size-display" class="font-size-label">20px</span>
+                    <button id="font-inc" class="font-btn" title="Increase font size">A+</button>
+                </div>
+            </div>
+
+            <div class="chapter-header-card">
+                <div class="chapter-novel-kicker" id="reader-novel-kicker">SWORDMASTER'S YOUNGEST SON</div>
+                <h1 id="chapter-title">Loading...</h1>
+                <div id="debug-url"></div>
+            </div>
+
+            <div id="chapter-content"></div>
+
+            <div class="chapter-end-ornament">◈ ◈ ◈</div>
+
+            <div class="bottom-nav-dock">
+                <button id="prev-bottom" class="bottom-nav-btn">← Previous</button>
+                <div class="key-hint">Tip: Use ← / → arrow keys</div>
+                <button id="next-bottom" class="bottom-nav-btn primary">Next Chapter →</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

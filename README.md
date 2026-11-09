@@ -1,6 +1,6 @@
 # GRIMOIRE
 
-**Live Site:** [https://sumith2425.github.io/grimoire/](https://sumith2425.github.io/grimoire/)
+**Live Site:** [https://sumith2425.github.io/Grimoire/](https://sumith2425.github.io/Grimoire/)
 
 I wanted to read *Swordmaster's Youngest Son*, but the website I started reading on was full of bugs. When I pressed "Next" after Chapter 301, it randomly took me straight to Chapter 361. On top of that, some chapter URLs didn't even match the actual chapter numbers, and there wasn't a proper scrollable chapter list to select from. 
 

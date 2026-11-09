@@ -113,7 +113,8 @@ function switchView(viewName) {
 
     if (viewName === "home") {
         homeView.classList.add("active");
-        renderLibraryGrid();
+        const searchInput = document.getElementById("library-search-input");
+        renderLibraryGrid(searchInput ? searchInput.value : "");
     } else if (viewName === "novel") {
         novelView.classList.add("active");
         headerBackGroup.style.display = "flex";
@@ -137,11 +138,26 @@ function applyFontSize() {
     localStorage.setItem("readerFontSize", readerFontSize);
 }
 
-function renderLibraryGrid() {
+function renderLibraryGrid(filterQuery = "") {
     const grid = document.getElementById("novel-grid");
     grid.innerHTML = "";
+    const q = filterQuery.trim().toLowerCase();
 
-    for (const novel of NOVELS) {
+    const filtered = NOVELS.filter(novel => {
+        if (!q) return true;
+        const inTitle = novel.title.toLowerCase().includes(q);
+        const inAuthor = novel.author.toLowerCase().includes(q);
+        const inGenres = novel.genres.some(g => g.toLowerCase().includes(q));
+        const inAlt = novel.associatedNames.some(a => a.toLowerCase().includes(q));
+        return inTitle || inAuthor || inGenres || inAlt;
+    });
+
+    if (filtered.length === 0) {
+        grid.innerHTML = `<div class="empty-library-msg">No novels found matching "${filterQuery}".</div>`;
+        return;
+    }
+
+    for (const novel of filtered) {
         const savedChap = localStorage.getItem(`lastRead_${novel.id}`);
         const card = document.createElement("div");
         card.className = "novel-card";
@@ -528,6 +544,9 @@ document.getElementById("prev-top").addEventListener("click", () => loadChapter(
 document.getElementById("next-top").addEventListener("click", () => loadChapter(currentChapter + 1));
 document.getElementById("prev-bottom").addEventListener("click", () => loadChapter(currentChapter - 1));
 document.getElementById("next-bottom").addEventListener("click", () => loadChapter(currentChapter + 1));
+document.getElementById("library-search-input").addEventListener("input", (e) => {
+    renderLibraryGrid(e.target.value);
+});
 
 renderLibraryGrid();
 fetchCoverAndBounds(activeNovel);

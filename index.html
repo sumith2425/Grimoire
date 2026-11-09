@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Novel Archive</title>
+    <title>Grimoire</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230b0b12'/><text x='50%' y='54%' dominant-baseline='central' text-anchor='middle' font-size='68' fill='%236366f1'>◈</text></svg>">
     <style>
         * {
@@ -287,6 +287,14 @@
             color: #ffffff;
             margin: 0;
             letter-spacing: 0.5px;
+        }
+        .novel-translation-credit {
+            font-size: 14px;
+            color: #818cf8;
+            font-weight: 600;
+            margin-top: -14px;
+            margin-bottom: 8px;
+            letter-spacing: 0.3px;
         }
         .info-block h3 {
             font-size: 18px;
@@ -731,6 +739,72 @@
             color: #626275;
             text-align: center;
         }
+        .gh-banner {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08));
+            border: 1px solid #2e2e48;
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 16px;
+        }
+        .gh-banner-text {
+            font-size: 14px;
+            color: #d4d4d8;
+            line-height: 1.5;
+        }
+        .gh-banner-text strong {
+            color: #ffffff;
+        }
+        .gh-link-btn {
+            background: #181824;
+            border: 1px solid #3f3f5a;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 9px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .gh-link-btn:hover {
+            background: #6366f1;
+            border-color: #6366f1;
+        }
+        .library-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .library-toolbar .section-heading {
+            margin: 0;
+        }
+        .library-search {
+            background: #12121a;
+            border: 1px solid #2b2b3d;
+            color: #ffffff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 280px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        .library-search:focus {
+            border-color: #6366f1;
+        }
+        .empty-library-msg {
+            color: #7c7c8e;
+            font-size: 15px;
+            padding: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -745,14 +819,26 @@
             </div>
             <div class="brand" id="nav-home">
                 <div class="brand-logo">◈</div>
-                <span>NOVEL ARCHIVE</span>
+                <span>GRIMOIRE</span>
             </div>
         </div>
+        <a href="https://github.com/sumith2425/grimoire" target="_blank" rel="noopener" class="gh-link-btn">GitHub Repo ↗</a>
     </header>
 
     <main id="home-view" class="view active">
         <div class="page-wrap">
-            <h2 class="section-heading">Available Novels</h2>
+            <div class="gh-banner">
+                <div class="gh-banner-text">
+                    <strong>Open Source Project:</strong> Feel free to visit the GitHub repo to contribute changes, fix bugs, or recommend new novels.
+                </div>
+                <a href="https://github.com/sumith2425/grimoire" target="_blank" rel="noopener" class="gh-link-btn">Contribute / Recommend on GitHub ↗</a>
+            </div>
+
+            <div class="library-toolbar">
+                <h2 class="section-heading">Available Novels</h2>
+                <input type="text" id="library-search-input" class="library-search" placeholder="Search by title, genre, or alt name...">
+            </div>
+
             <div class="novel-grid" id="novel-grid"></div>
         </div>
     </main>
@@ -785,7 +871,7 @@
 
                 <div class="novel-right">
                     <h1 class="novel-main-title" id="detail-title"></h1>
-
+                    <div class="novel-translation-credit">Source: punisher87 translation</div>
                     <div class="info-block">
                         <h3>Description</h3>
                         <div id="detail-description"></div>

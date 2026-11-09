@@ -2,6 +2,7 @@ const NOVELS = [
     {
         id: "smys",
         title: "SWORDMASTER'S YOUNGEST SON",
+        translator: "punisher87 translation",
         siteDomain: "blackseatls.wordpress.com",
         infoSlug: "swordmasters-youngest-son-2",
         cover: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80",
@@ -101,7 +102,16 @@ function renderRecentChapters() {
     });
 }
 
-function switchView(viewName) {
+function selectNovel(novel) {
+    activeNovel = novel;
+    minChapter = novel.minChapter || 1;
+    maxChapter = novel.maxChapter || 5000;
+    detectedMaxChapter = novel.detectedMax || null;
+    currentChapter = Number(localStorage.getItem(`lastRead_${novel.id}`)) || novel.defaultChapter || 1;
+    fetchCoverAndBounds(novel);
+}
+
+function switchView(viewName, updateUrl = true) {
     homeView.classList.remove("active");
     novelView.classList.remove("active");
     readerView.classList.remove("active");
@@ -115,11 +125,13 @@ function switchView(viewName) {
         homeView.classList.add("active");
         const searchInput = document.getElementById("library-search-input");
         renderLibraryGrid(searchInput ? searchInput.value : "");
+        if (updateUrl) history.pushState(null, "", "#/");
     } else if (viewName === "novel") {
         novelView.classList.add("active");
         headerBackGroup.style.display = "flex";
         backToLibraryBtn.style.display = "inline-flex";
         renderNovelDetails(activeNovel);
+        if (updateUrl) history.pushState(null, "", `#/novel/${activeNovel.id}`);
     } else if (viewName === "reader") {
         readerView.classList.add("active");
         document.body.classList.add("reader-mode");
@@ -173,7 +185,7 @@ function renderLibraryGrid(filterQuery = "") {
             </div>
         `;
         card.addEventListener("click", () => {
-            activeNovel = novel;
+            selectNovel(novel);
             switchView("novel");
         });
         grid.appendChild(card);
@@ -201,8 +213,10 @@ async function fetchCoverAndBounds(novel) {
             }
             const cardImg = document.getElementById(`card-img-${novel.id}`);
             if (cardImg) cardImg.src = novel.cover;
-            const detailImg = document.getElementById("detail-cover");
-            if (detailImg) detailImg.src = novel.cover;
+            if (activeNovel.id === novel.id) {
+                const detailImg = document.getElementById("detail-cover");
+                if (detailImg) detailImg.src = novel.cover;
+            }
         }
 
         const latestData = await latestResp.json();
@@ -211,15 +225,19 @@ async function fetchCoverAndBounds(novel) {
         const latestNums = (latestData.posts || []).map(extractChapterNum).filter(Boolean);
         const oldestNums = (oldestData.posts || []).map(extractChapterNum).filter(Boolean);
 
-        if (latestNums.length > 0) detectedMaxChapter = Math.max(...latestNums);
-        if (oldestNums.length > 0) minChapter = Math.min(...oldestNums);
+        if (latestNums.length > 0) novel.detectedMax = Math.max(...latestNums);
+        if (oldestNums.length > 0) novel.minChapter = Math.min(...oldestNums);
     } catch (err) {
         console.error(err);
     }
 
-    renderNovelChapterList(document.getElementById("novel-chapter-search").value);
-    renderDropdownItems("");
-    updateNavButtons();
+    if (activeNovel.id === novel.id) {
+        detectedMaxChapter = novel.detectedMax || novel.maxChapter;
+        minChapter = novel.minChapter || 1;
+        renderNovelChapterList(document.getElementById("novel-chapter-search").value);
+        renderDropdownItems("");
+        updateNavButtons();
+    }
 }
 
 function renderNovelDetails(novel) {
@@ -228,6 +246,10 @@ function renderNovelDetails(novel) {
 
     document.getElementById("detail-cover").src = novel.cover;
     document.getElementById("detail-title").textContent = novel.title;
+    const translatorEl = document.getElementById("detail-translator");
+    if (translatorEl) {
+        translatorEl.textContent = novel.translator ? `Source: ${novel.translator}` : "";
+    }
     document.getElementById("detail-type").textContent = novel.type;
     document.getElementById("detail-author").textContent = novel.author;
     document.getElementById("detail-status").textContent = novel.status;
@@ -350,7 +372,7 @@ function updateNavButtons() {
     document.getElementById("next-bottom").disabled = atMax;
 }
 
-async function loadChapter(chapterNum) {
+async function loadChapter(chapterNum, updateUrl = true) {
     const num = Number(String(chapterNum).replace(/[^0-9]/g, ""));
     if (!num) return;
 
@@ -359,6 +381,10 @@ async function loadChapter(chapterNum) {
     addRecentChapter(activeNovel.id, currentChapter);
     chapterInput.value = `Chapter ${currentChapter}`;
     updateNavButtons();
+
+    if (updateUrl) {
+        history.pushState(null, "", `#/novel/${activeNovel.id}/chapter/${currentChapter}`);
+    }
 
     titleEl.textContent = `Loading Chapter ${currentChapter}...`;
     debugUrlEl.innerHTML = "Fetching chapter from source...";
@@ -548,5 +574,31 @@ document.getElementById("library-search-input").addEventListener("input", (e) =>
     renderLibraryGrid(e.target.value);
 });
 
-renderLibraryGrid();
-fetchCoverAndBounds(activeNovel);
+function handleRouteFromUrl() {
+    const hash = decodeURIComponent(window.location.hash || "#/");
+    const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+
+    if (parts[0] === "novel" && parts[1]) {
+        const targetNovel = NOVELS.find(n => n.id === parts[1]);
+        if (!targetNovel) {
+            switchView("home", true);
+            return;
+        }
+
+        selectNovel(targetNovel);
+
+        if (parts[2] === "chapter" && parts[3]) {
+            switchView("reader", false);
+            loadChapter(parts[3], false);
+        } else {
+            switchView("novel", false);
+        }
+    } else {
+        switchView("home", false);
+    }
+}
+
+window.addEventListener("popstate", handleRouteFromUrl);
+
+NOVELS.forEach(novel => fetchCoverAndBounds(novel));
+handleRouteFromUrl();

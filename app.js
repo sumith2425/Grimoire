@@ -34,10 +34,15 @@ let detectedMaxChapter = 948;
 let sortDescending = true;
 let readerFontSize = Number(localStorage.getItem("readerFontSize")) || 20;
 let isRestoringScroll = false;
+let isAutoScrolling = false;
+let autoScrollSpeed = Number(localStorage.getItem("autoScrollSpeed")) || 2;
+let autoScrollRaf = null;
+let lastFrameTime = null;
+let scrollAccumulator = 0;
+const ARROW_SCROLL_AMOUNT = 250;
 if ("scrollRestoration" in history) {
     history.scrollRestoration = "manual";
 }
-
 const homeView = document.getElementById("home-view");
 const novelView = document.getElementById("novel-view");
 const readerView = document.getElementById("reader-view");
@@ -115,7 +120,68 @@ function selectNovel(novel) {
     fetchCoverAndBounds(novel);
 }
 
+function updateAutoScrollUI() {
+    const btn = document.getElementById("autoscroll-btn");
+    const speedDisplay = document.getElementById("speed-display");
+    if (btn) {
+        btn.textContent = isAutoScrolling ? "⏸ Pause" : "▶ Auto";
+        btn.classList.toggle("active", isAutoScrolling);
+    }
+    if (speedDisplay) {
+        speedDisplay.textContent = `${autoScrollSpeed}x`;
+    }
+}
+
+function autoScrollStep(timestamp) {
+    if (!isAutoScrolling) return;
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    const delta = (timestamp - lastFrameTime) / 1000;
+    lastFrameTime = timestamp;
+
+    const pixelsPerSecond = autoScrollSpeed * 22;
+    scrollAccumulator += pixelsPerSecond * delta;
+
+    if (scrollAccumulator >= 1) {
+        const move = Math.floor(scrollAccumulator);
+        window.scrollBy(0, move);
+        scrollAccumulator -= move;
+    }
+
+    const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+    if (atBottom) {
+        stopAutoScroll();
+        return;
+    }
+
+    autoScrollRaf = requestAnimationFrame(autoScrollStep);
+}
+
+function startAutoScroll() {
+    if (isAutoScrolling) return;
+    isAutoScrolling = true;
+    lastFrameTime = null;
+    scrollAccumulator = 0;
+    updateAutoScrollUI();
+    autoScrollRaf = requestAnimationFrame(autoScrollStep);
+}
+
+function stopAutoScroll() {
+    isAutoScrolling = false;
+    lastFrameTime = null;
+    if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
+    updateAutoScrollUI();
+}
+
+function toggleAutoScroll() {
+    if (isAutoScrolling) {
+        stopAutoScroll();
+    } else {
+        startAutoScroll();
+    }
+}
+
 function switchView(viewName, updateUrl = true) {
+    stopAutoScroll();
     homeView.classList.remove("active");
     novelView.classList.remove("active");
     readerView.classList.remove("active");
@@ -379,6 +445,7 @@ function updateNavButtons() {
 }
 
 async function loadChapter(chapterNum, updateUrl = true) {
+    stopAutoScroll();
     const num = Number(String(chapterNum).replace(/[^0-9]/g, ""));
     if (!num) return;
 
@@ -575,11 +642,20 @@ document.addEventListener("click", (e) => {
 
 window.addEventListener("keydown", (e) => {
     if (!readerView.classList.contains("active")) return;
-    if (document.activeElement === chapterInput) return;
-    if (e.key === "ArrowLeft" && currentChapter > minChapter) {
-        loadChapter(currentChapter - 1);
-    } else if (e.key === "ArrowRight" && currentChapter < maxChapter) {
-        loadChapter(currentChapter + 1);
+    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+
+    if (e.code === "Space") {
+        e.preventDefault();
+        if (document.activeElement && document.activeElement.tagName === "BUTTON") {
+            document.activeElement.blur();
+        }
+        toggleAutoScroll();
+    } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        window.scrollBy({ top: ARROW_SCROLL_AMOUNT, behavior: "smooth" });
+    } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        window.scrollBy({ top: -ARROW_SCROLL_AMOUNT, behavior: "smooth" });
     }
 });
 
@@ -631,3 +707,22 @@ window.addEventListener("popstate", handleRouteFromUrl);
 
 NOVELS.forEach(novel => fetchCoverAndBounds(novel));
 handleRouteFromUrl();
+document.getElementById("autoscroll-btn").addEventListener("click", toggleAutoScroll);
+
+document.getElementById("speed-dec").addEventListener("click", () => {
+    if (autoScrollSpeed > 1) {
+        autoScrollSpeed = Math.round((autoScrollSpeed - 0.5) * 10) / 10;
+        localStorage.setItem("autoScrollSpeed", autoScrollSpeed);
+        updateAutoScrollUI();
+    }
+});
+
+document.getElementById("speed-inc").addEventListener("click", () => {
+    if (autoScrollSpeed < 10) {
+        autoScrollSpeed = Math.round((autoScrollSpeed + 0.5) * 10) / 10;
+        localStorage.setItem("autoScrollSpeed", autoScrollSpeed);
+        updateAutoScrollUI();
+    }
+});
+
+updateAutoScrollUI();

@@ -805,13 +805,74 @@
             font-size: 15px;
             padding: 20px 0;
         }
+        .autoscroll-dock {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(18, 18, 26, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid #2e2e44;
+            border-radius: 999px;
+            padding: 6px 10px;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+        }
+        body.reader-mode .autoscroll-dock {
+            display: flex;
+        }
+        .autoscroll-toggle {
+            background: #1c1c28;
+            border: 1px solid #34344e;
+            color: #e4e4e7;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .autoscroll-toggle.active {
+            background: #6366f1;
+            border-color: #6366f1;
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(99, 102, 241, 0.5);
+        }
+        .speed-btn {
+            background: transparent;
+            border: none;
+            color: #a1a1b5;
+            padding: 5px 9px;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 999px;
+        }
+        .speed-btn:hover {
+            background: #252536;
+            color: #ffffff;
+        }
+        .speed-label {
+            font-size: 12px;
+            color: #9393a8;
+            min-width: 32px;
+            text-align: center;
+            font-family: monospace;
+        }
     </style>
     <script data-goatcounter="https://phantom2425.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
     <div id="reading-progress"></div>
-
+    <div class="autoscroll-dock" id="autoscroll-dock">
+        <button id="autoscroll-btn" class="autoscroll-toggle" title="Toggle Auto-Scroll (Spacebar)">▶ Auto</button>
+        <button id="speed-dec" class="speed-btn" title="Slower">−</button>
+        <span id="speed-display" class="speed-label">2x</span>
+        <button id="speed-inc" class="speed-btn" title="Faster">+</button>
+    </div>
     <header class="top-header">
         <div class="header-left">
             <div class="header-actions" id="header-back-group" style="display: none;">

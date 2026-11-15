@@ -40,6 +40,7 @@ let autoScrollSpeed = Number(localStorage.getItem("autoScrollSpeed")) || 0.5;
 let autoScrollRaf = null;
 let lastFrameTime = null;
 let scrollAccumulator = 0;
+let wasAutoScrollingBeforeHide = false;
 const ARROW_SCROLL_AMOUNT = 250;
 if ("scrollRestoration" in history) {
     history.scrollRestoration = "manual";
@@ -166,8 +167,9 @@ function startAutoScroll() {
     autoScrollRaf = requestAnimationFrame(autoScrollStep);
 }
 
-function stopAutoScroll() {
+function stopAutoScroll(clearResume = true) {
     isAutoScrolling = false;
+    if (clearResume) wasAutoScrollingBeforeHide = false;
     lastFrameTime = null;
     if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
     updateAutoScrollUI();
@@ -708,6 +710,7 @@ window.addEventListener("popstate", handleRouteFromUrl);
 
 NOVELS.forEach(novel => fetchCoverAndBounds(novel));
 handleRouteFromUrl();
+
 document.getElementById("autoscroll-btn").addEventListener("click", toggleAutoScroll);
 
 document.getElementById("speed-dec").addEventListener("click", () => {
@@ -731,3 +734,28 @@ document.getElementById("speed-inc").addEventListener("click", () => {
 });
 
 updateAutoScrollUI();
+
+function pauseOnLeave() {
+    if (isAutoScrolling) {
+        wasAutoScrollingBeforeHide = true;
+        stopAutoScroll(false);
+    }
+}
+
+function resumeOnReturn() {
+    if (wasAutoScrollingBeforeHide && readerView.classList.contains("active")) {
+        wasAutoScrollingBeforeHide = false;
+        startAutoScroll();
+    }
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        pauseOnLeave();
+    } else {
+        resumeOnReturn();
+    }
+});
+
+window.addEventListener("blur", pauseOnLeave);
+window.addEventListener("focus", resumeOnReturn);

@@ -35,7 +35,8 @@ let sortDescending = true;
 let readerFontSize = Number(localStorage.getItem("readerFontSize")) || 20;
 let isRestoringScroll = false;
 let isAutoScrolling = false;
-let autoScrollSpeed = Number(localStorage.getItem("autoScrollSpeed")) || 2;
+const SPEED_STEPS = [0.25, 0.33, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 7, 10];
+let autoScrollSpeed = Number(localStorage.getItem("autoScrollSpeed")) || 0.5;
 let autoScrollRaf = null;
 let lastFrameTime = null;
 let scrollAccumulator = 0;
@@ -710,16 +711,20 @@ handleRouteFromUrl();
 document.getElementById("autoscroll-btn").addEventListener("click", toggleAutoScroll);
 
 document.getElementById("speed-dec").addEventListener("click", () => {
-    if (autoScrollSpeed > 1) {
-        autoScrollSpeed = Math.round((autoScrollSpeed - 0.5) * 10) / 10;
+    let idx = SPEED_STEPS.findIndex(s => s >= autoScrollSpeed);
+    if (idx === -1) idx = SPEED_STEPS.length - 1;
+    if (idx > 0) {
+        autoScrollSpeed = SPEED_STEPS[idx - 1];
         localStorage.setItem("autoScrollSpeed", autoScrollSpeed);
         updateAutoScrollUI();
     }
 });
 
 document.getElementById("speed-inc").addEventListener("click", () => {
-    if (autoScrollSpeed < 10) {
-        autoScrollSpeed = Math.round((autoScrollSpeed + 0.5) * 10) / 10;
+    let idx = SPEED_STEPS.findIndex(s => s >= autoScrollSpeed);
+    if (idx === -1) idx = 0;
+    if (idx < SPEED_STEPS.length - 1) {
+        autoScrollSpeed = SPEED_STEPS[idx + 1];
         localStorage.setItem("autoScrollSpeed", autoScrollSpeed);
         updateAutoScrollUI();
     }

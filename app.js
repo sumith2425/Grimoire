@@ -34,6 +34,9 @@ let detectedMaxChapter = 948;
 let sortDescending = true;
 let readerFontSize = Number(localStorage.getItem("readerFontSize")) || 20;
 let isRestoringScroll = false;
+if ("scrollRestoration" in history) {
+    history.scrollRestoration = "manual";
+}
 
 const homeView = document.getElementById("home-view");
 const novelView = document.getElementById("novel-view");
@@ -127,12 +130,14 @@ function switchView(viewName, updateUrl = true) {
         const searchInput = document.getElementById("library-search-input");
         renderLibraryGrid(searchInput ? searchInput.value : "");
         if (updateUrl) history.pushState(null, "", "#/");
+        window.scrollTo(0, 0);
     } else if (viewName === "novel") {
         novelView.classList.add("active");
         headerBackGroup.style.display = "flex";
         backToLibraryBtn.style.display = "inline-flex";
         renderNovelDetails(activeNovel);
         if (updateUrl) history.pushState(null, "", `#/novel/${activeNovel.id}`);
+        window.scrollTo(0, 0);
     } else if (viewName === "reader") {
         readerView.classList.add("active");
         document.body.classList.add("reader-mode");
@@ -411,14 +416,24 @@ async function loadChapter(chapterNum, updateUrl = true) {
         debugUrlEl.innerHTML = `<a href="${post.URL}" target="_blank" rel="noopener">Source: ${post.URL} ↗</a>`;
         contentEl.innerHTML = cleanChapterContent(post.content);
 
-        equestAnimationFrame(() => {
-            const savedRatio = parseFloat(localStorage.getItem(`scrollPos_${activeNovel.id}_${currentChapter}`));
-            if (savedRatio && savedRatio > 0) {
-                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-                window.scrollTo({ top: docHeight * savedRatio, behavior: "instant" });
-            }
+        const savedRatio = parseFloat(localStorage.getItem(`scrollPos_${activeNovel.id}_${currentChapter}`));
+        if (savedRatio && savedRatio > 0) {
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                    const targetY = docHeight * savedRatio;
+                    window.scrollTo(0, targetY);
+                    progressBar.style.width = `${savedRatio * 100}%`;
+                    setTimeout(() => {
+                        isRestoringScroll = false;
+                    }, 100);
+                });
+            }, 60);
+        } else {
+            window.scrollTo(0, 0);
+            progressBar.style.width = "0%";
             isRestoringScroll = false;
-        });
+        }
     } catch (err) {
         titleEl.textContent = "Error Loading Chapter";
         contentEl.innerHTML = `<p>${err.message}</p>`;

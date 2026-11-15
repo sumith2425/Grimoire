@@ -35,6 +35,7 @@ let sortDescending = true;
 let readerFontSize = Number(localStorage.getItem("readerFontSize")) || 20;
 let isRestoringScroll = false;
 let isAutoScrolling = false;
+let autoScrollEnabled = localStorage.getItem("autoScrollEnabled") === "true";
 const SPEED_STEPS = [0.25, 0.33, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 7, 10];
 let autoScrollSpeed = Number(localStorage.getItem("autoScrollSpeed")) || 0.5;
 let autoScrollRaf = null;
@@ -151,14 +152,18 @@ function autoScrollStep(timestamp) {
 
     const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
     if (atBottom) {
-        stopAutoScroll();
+        stopAutoScroll(false);
         return;
     }
 
     autoScrollRaf = requestAnimationFrame(autoScrollStep);
 }
 
-function startAutoScroll() {
+function startAutoScroll(savePreference = true) {
+    if (savePreference) {
+        autoScrollEnabled = true;
+        localStorage.setItem("autoScrollEnabled", "true");
+    }
     if (isAutoScrolling) return;
     isAutoScrolling = true;
     lastFrameTime = null;
@@ -167,9 +172,13 @@ function startAutoScroll() {
     autoScrollRaf = requestAnimationFrame(autoScrollStep);
 }
 
-function stopAutoScroll(clearResume = true) {
+function stopAutoScroll(savePreference = true) {
+    if (savePreference) {
+        autoScrollEnabled = false;
+        localStorage.setItem("autoScrollEnabled", "false");
+        wasAutoScrollingBeforeHide = false;
+    }
     isAutoScrolling = false;
-    if (clearResume) wasAutoScrollingBeforeHide = false;
     lastFrameTime = null;
     if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
     updateAutoScrollUI();
@@ -177,14 +186,14 @@ function stopAutoScroll(clearResume = true) {
 
 function toggleAutoScroll() {
     if (isAutoScrolling) {
-        stopAutoScroll();
+        stopAutoScroll(true);
     } else {
-        startAutoScroll();
+        startAutoScroll(true);
     }
 }
 
 function switchView(viewName, updateUrl = true) {
-    stopAutoScroll();
+    stopAutoScroll(false);
     homeView.classList.remove("active");
     novelView.classList.remove("active");
     readerView.classList.remove("active");
@@ -448,7 +457,7 @@ function updateNavButtons() {
 }
 
 async function loadChapter(chapterNum, updateUrl = true) {
-    stopAutoScroll();
+    stopAutoScroll(false);
     const num = Number(String(chapterNum).replace(/[^0-9]/g, ""));
     if (!num) return;
 
@@ -496,6 +505,7 @@ async function loadChapter(chapterNum, updateUrl = true) {
                     progressBar.style.width = `${savedRatio * 100}%`;
                     setTimeout(() => {
                         isRestoringScroll = false;
+                        if (autoScrollEnabled) startAutoScroll(false);
                     }, 100);
                 });
             }, 60);
@@ -503,6 +513,7 @@ async function loadChapter(chapterNum, updateUrl = true) {
             window.scrollTo(0, 0);
             progressBar.style.width = "0%";
             isRestoringScroll = false;
+            if (autoScrollEnabled) startAutoScroll(false);
         }
     } catch (err) {
         titleEl.textContent = "Error Loading Chapter";
@@ -743,9 +754,10 @@ function pauseOnLeave() {
 }
 
 function resumeOnReturn() {
-    if (wasAutoScrollingBeforeHide && readerView.classList.contains("active")) {
+    if ((wasAutoScrollingBeforeHide || autoScrollEnabled) && readerView.classList.contains("active")) {
+        const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
         wasAutoScrollingBeforeHide = false;
-        startAutoScroll();
+        if (!atBottom) startAutoScroll(false);
     }
 }
 

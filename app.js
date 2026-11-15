@@ -33,6 +33,7 @@ let maxChapter = activeNovel.maxChapter;
 let detectedMaxChapter = 948;
 let sortDescending = true;
 let readerFontSize = Number(localStorage.getItem("readerFontSize")) || 20;
+let isRestoringScroll = false;
 
 const homeView = document.getElementById("home-view");
 const novelView = document.getElementById("novel-view");
@@ -389,6 +390,7 @@ async function loadChapter(chapterNum, updateUrl = true) {
     titleEl.textContent = `Loading Chapter ${currentChapter}...`;
     debugUrlEl.innerHTML = "Fetching chapter from source...";
     contentEl.innerHTML = "";
+    isRestoringScroll = true;
     window.scrollTo(0, 0);
 
     try {
@@ -409,6 +411,14 @@ async function loadChapter(chapterNum, updateUrl = true) {
         debugUrlEl.innerHTML = `<a href="${post.URL}" target="_blank" rel="noopener">Source: ${post.URL} ↗</a>`;
         contentEl.innerHTML = cleanChapterContent(post.content);
 
+        equestAnimationFrame(() => {
+            const savedRatio = parseFloat(localStorage.getItem(`scrollPos_${activeNovel.id}_${currentChapter}`));
+            if (savedRatio && savedRatio > 0) {
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                window.scrollTo({ top: docHeight * savedRatio, behavior: "instant" });
+            }
+            isRestoringScroll = false;
+        });
     } catch (err) {
         titleEl.textContent = "Error Loading Chapter";
         contentEl.innerHTML = `<p>${err.message}</p>`;
@@ -562,8 +572,12 @@ window.addEventListener("scroll", () => {
     if (!readerView.classList.contains("active")) return;
     const scrollTop = window.scrollY;
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-    const pct = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
-    progressBar.style.width = `${pct}%`;
+    const ratio = docHeight > 0 ? Math.min(1, Math.max(0, scrollTop / docHeight)) : 0;
+    progressBar.style.width = `${ratio * 100}%`;
+
+    if (!isRestoringScroll && docHeight > 0) {
+        localStorage.setItem(`scrollPos_${activeNovel.id}_${currentChapter}`, ratio.toFixed(4));
+    }
 });
 
 document.getElementById("prev-top").addEventListener("click", () => loadChapter(currentChapter - 1));

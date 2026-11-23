@@ -1,0 +1,28 @@
+[
+    {
+        "id": "smys",
+        "title": "SWORDMASTER'S YOUNGEST SON",
+        "translator": "punisher87 translation",
+        "siteDomain": "blackseatls.wordpress.com",
+        "infoSlug": "swordmasters-youngest-son-2",
+        "cover": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80",
+        "type": "Web Novel",
+        "genres": ["Action", "Adventure", "Fantasy", "Martial Arts", "Shounen"],
+        "author": "Emperor Penguin / 황제펭귄",
+        "status": "46 Volumes / 1147 chapters (Complete)",
+        "description": [
+            "Jin Runcandel is the youngest son of the greatest Swordmaster. After he gets himself kicked out of their clan, he meets a tragic fate...but before he dies, a God gives him a second chance. Now he must use his new power for good.",
+            "Will Jin become the world's strongest Swordmaster and live up to his greatest potential?"
+        ],
+        "associatedNames": [
+            "SMYS",
+            "The Swordmaster's Son",
+            "The Youngest Son of a Renowned Family of Swordsmen",
+            "검술명가 막내아들"
+        ],
+        "defaultChapter": 301,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 948
+    }
+]

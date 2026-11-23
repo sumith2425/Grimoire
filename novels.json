@@ -3,6 +3,13 @@
         "id": "smys",
         "title": "SWORDMASTER'S YOUNGEST SON",
         "translator": "punisher87 translation",
+        "translatorName": "punisher87",
+        "translatorUrl": "https://blackseatls.wordpress.com/",
+        "supportLinks": [
+            { "label": "Ko-fi", "url": "https://ko-fi.com/reaper87" },
+            { "label": "Patreon", "url": "https://www.patreon.com/Punisher87translation" },
+            { "label": "Buy Me a Coffee", "url": "https://buymeacoffee.com/punisher87" }
+        ],
         "siteDomain": "blackseatls.wordpress.com",
         "infoSlug": "swordmasters-youngest-son-2",
         "cover": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80",
@@ -10,6 +17,7 @@
         "genres": ["Action", "Adventure", "Fantasy", "Martial Arts", "Shounen"],
         "author": "Emperor Penguin / 황제펭귄",
         "status": "46 Volumes / 1147 chapters (Complete)",
+        "translationStatus": "Free chapters end at 948; the remaining chapters are paid on the translator's own site.",
         "description": [
             "Jin Runcandel is the youngest son of the greatest Swordmaster. After he gets himself kicked out of their clan, he meets a tragic fate...but before he dies, a God gives him a second chance. Now he must use his new power for good.",
             "Will Jin become the world's strongest Swordmaster and live up to his greatest potential?"
@@ -21,8 +29,221 @@
             "검술명가 막내아들"
         ],
         "defaultChapter": 301,
-        "minChapter": 1,
+        "minChapter": 189,
         "maxChapter": 5000,
         "knownMaxChapter": 948
+    },
+    {
+        "id": "erk",
+        "title": "ETERNALLY REGRESSING KNIGHT",
+        "translator": "Baga Yaga (Revenger Scans) translation",
+        "translatorName": "Baga Yaga (Revenger Scans)",
+        "translatorUrl": "https://babayaga017.wordpress.com/",
+        "supportLinks": [
+            { "label": "Ko-fi", "url": "https://ko-fi.com/revengerscans" },
+            { "label": "Buy Me a Coffee", "url": "https://buymeacoffee.com/revengerscans" }
+        ],
+        "siteDomain": "babayaga017.wordpress.com",
+        "type": "Web Novel",
+        "genres": ["Action", "Adventure", "Fantasy", "Regression", "Swordsmanship"],
+        "author": "Soul Pung",
+        "status": "Ongoing (600+ chapters in Korean)",
+        "translationStatus": "Free chapters 1–274; later chapters are paid on the translator's own site.",
+        "description": [
+            "Enkrid is an ordinary mercenary with no special talent, yet he has spent his whole life chasing the dream of becoming a knight.",
+            "When he dies on the battlefield, he wakes up at the start of the same day — and keeps doing so. Each repeated 'today' becomes another chance to train, survive, and inch closer to a dream everyone else calls impossible."
+        ],
+        "associatedNames": [
+            "A Knight Who Eternally Regresses",
+            "The Knight Only Lives Today",
+            "오늘만 사는 기사"
+        ],
+        "defaultChapter": 1,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 274
+    },
+    {
+        "id": "tsm",
+        "title": "TALENT-SWALLOWING MAGICIAN",
+        "translator": "Revenger Scans (punisher87) translation",
+        "translatorName": "Revenger Scans (punisher87)",
+        "translatorUrl": "https://punisher877.wordpress.com/",
+        "supportLinks": [
+            { "label": "Ko-fi", "url": "https://ko-fi.com/revengerscans" }
+        ],
+        "siteDomain": "punisher877.wordpress.com",
+        "infoSlug": "talent-swallowing-magician",
+        "chapterPattern": "^(?:Talent[ -]Swallowing Magician\\s*[-–—:]?\\s*)?Ch(?:apter)?\\.?\\s*(\\d{1,4})\\b",
+        "type": "Web Novel",
+        "genres": ["Action", "Fantasy", "Magic", "Academy", "Noble Family"],
+        "author": "빵먹는다람쥐 (Bread-Eating Squirrel)",
+        "status": "Korean web novel (KakaoPage)",
+        "translationStatus": "Free chapters 1–195; continued as paid chapters on the translator's own site.",
+        "description": [
+            "Elric Melvinger is the only heir of a famous family of mages — and has far too much talent for his own good. His overflowing gift makes it impossible for him to control magic at all.",
+            "Then he uncovers a secret method left behind by his ancestors: swallow mana, store all of it inside himself, and use it to create magic no one has seen before."
+        ],
+        "associatedNames": [
+            "Talent Swallowing Magician",
+            "재능 삼킨 마법사"
+        ],
+        "defaultChapter": 1,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 195
+    },
+    {
+        "id": "cothd",
+        "title": "CHRONICLES OF THE HEAVENLY DEMON",
+        "translator": "moonchildkhz (Betterdays Translations) translation",
+        "translatorName": "moonchildkhz (Betterdays Translations)",
+        "translatorUrl": "https://betterdaystranslations.wordpress.com/chronicles-of-the-heavenly-demon/",
+        "supportLinks": [
+            { "label": "Buy Me a Coffee", "url": "https://www.buymeacoffee.com/moonchild.khz" }
+        ],
+        "siteDomain": "betterdaystranslations.wordpress.com",
+        "category": "chronicles-of-the-heavenly-demon",
+        "infoSlug": "chronicles-of-the-heavenly-demon",
+        "chapterPattern": "^(?:chapter\\s*)?(\\d{1,4})\\s*(?:$|[:\\-–—.(\\[])",
+        "type": "Web Novel",
+        "genres": ["Action", "Martial Arts", "Wuxia", "Revenge", "Reincarnation"],
+        "author": "Il-hwang",
+        "status": "Complete",
+        "translationStatus": "Complete on this site from chapter 26 (chapters 1–25, 49 and 65 aren't hosted there).",
+        "description": [
+            "Hyuk Woon-seong and his master are falsely accused of practicing forbidden demonic arts and killed by the so-called righteous sects.",
+            "Given a second life as trainee Number 900 of the Demonic Cult, Woon-seong hides two identities and one purpose: grow strong enough to take over the cult and make the hypocrites who killed his master pay."
+        ],
+        "associatedNames": [
+            "신마경천기"
+        ],
+        "defaultChapter": 26,
+        "minChapter": 26,
+        "maxChapter": 5000,
+        "knownMaxChapter": 208
+    },
+    {
+        "id": "ddwn",
+        "title": "DUNGEON DEFENSE (WN)",
+        "translator": "Shalvation Translations",
+        "translatorName": "Shalvation Translations",
+        "translatorUrl": "https://shalvationtranslations.wordpress.com/dungeon-defense-wn-table-of-contents/",
+        "supportLinks": [
+            { "label": "Patreon", "url": "https://www.patreon.com/shalvationtranslations" }
+        ],
+        "siteDomain": "shalvationtranslations.wordpress.com",
+        "infoSlug": "dungeon-defense-wn-table-of-contents",
+        "chapterPattern": "^Dungeon Defense \\(WN\\)\\s*:?\\s*Chapter\\s*(\\d{1,4})\\b",
+        "type": "Web Novel",
+        "genres": ["Dark Fantasy", "Strategy", "Demon Lord", "Transmigration", "Mature"],
+        "author": "Yoo Heonhwa / 유헌화",
+        "status": "Complete (510 chapters)",
+        "translationStatus": "Ongoing (a few chapter numbers are missing on the translator's site).",
+        "description": [
+            "A strategy-game veteran wakes up inside the game he mastered — as Dantalian, the weakest of its 72 demon lords.",
+            "With no real power of his own, he survives the only way he can: through lies, schemes, and ruthless manipulation of humans and demons alike. A dark, cunning web novel version that follows a different story from the light novel."
+        ],
+        "associatedNames": [
+            "던전 디펜스",
+            "Dungeon Defense Web Novel"
+        ],
+        "defaultChapter": 1,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 464
+    },
+    {
+        "id": "abhf",
+        "title": "THE ACADEMY'S BLACK-HAIRED FOREIGNER",
+        "translator": "BetterTranslation",
+        "translatorName": "BetterTranslation",
+        "translatorUrl": "https://bettertranslation9.wordpress.com/academys-black-haired-foreigner-novel-english-translation/",
+        "supportLinks": [
+            { "label": "Patreon", "url": "https://www.patreon.com/BetterTranslation" }
+        ],
+        "siteDomain": "bettertranslation9.wordpress.com",
+        "category": "academys-black-haired-foreigner",
+        "infoSlug": "academys-black-haired-foreigner-novel-english-translation",
+        "chapterPattern": "^The Academy.s Black-Haired Foreigner\\s*[-–—:]?\\s*Chapter\\s*(\\d{1,4})\\b",
+        "type": "Web Novel",
+        "genres": ["Action", "Adventure", "Fantasy", "School Life", "Romance"],
+        "author": "노빠꾸맨",
+        "status": "Complete (414 chapters)",
+        "translationStatus": "Ongoing (new chapters daily).",
+        "description": [
+            "A Korean reader is pulled into a Japanese-style light novel — as its only Korean character, a side role who was never meant to matter.",
+            "Surrounded by protagonists, heroines and villains at a dangerous academy, he knows far too much about the story ahead. Whether it will still play out the way he remembers is another question."
+        ],
+        "associatedNames": [
+            "ABHF",
+            "Academy's Black-Haired Foreigner",
+            "아카데미 검은머리 외국인"
+        ],
+        "defaultChapter": 1,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 134
+    },
+    {
+        "id": "metg",
+        "title": "MY EXCLUSIVE TOWER GUIDE",
+        "translator": "BetterTranslation",
+        "translatorName": "BetterTranslation",
+        "translatorUrl": "https://bettertranslation9.wordpress.com/my-exclusive-tower-guide-novel-english-translation/",
+        "supportLinks": [
+            { "label": "Patreon", "url": "https://www.patreon.com/BetterTranslation" }
+        ],
+        "siteDomain": "bettertranslation9.wordpress.com",
+        "category": "my-exclusive-tower-guide",
+        "infoSlug": "my-exclusive-tower-guide-novel-english-translation",
+        "chapterPattern": "^My Exclusive Tower Guide\\s*[-–—:]?\\s*Chapter\\s*(\\d{1,4})\\b",
+        "type": "Web Novel",
+        "genres": ["Action", "Fantasy", "Apocalypse", "Tower Climbing", "Survival"],
+        "author": "GoodLuck",
+        "status": "Korean web novel",
+        "translationStatus": "Ongoing (weekly).",
+        "description": [
+            "On the day the world ends, a deadly survival game begins inside a tower designed to turn people against each other — and one man receives a mysterious guide that only he can see.",
+            "Instead of playing the tower's game, he decides to climb it with the people he trusts and force a happy ending."
+        ],
+        "associatedNames": [
+            "나만 보는 탑 공략법"
+        ],
+        "defaultChapter": 1,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 262
+    },
+    {
+        "id": "ecs",
+        "title": "THE EARTH'S CHOSEN SAVIOR",
+        "translator": "BetterTranslation",
+        "translatorName": "BetterTranslation",
+        "translatorUrl": "https://bettertranslation9.wordpress.com/the-earths-chosen-savior-novel-english-translation/",
+        "supportLinks": [
+            { "label": "Patreon", "url": "https://www.patreon.com/BetterTranslation" }
+        ],
+        "siteDomain": "bettertranslation9.wordpress.com",
+        "category": "the-earths-chosen-savior",
+        "infoSlug": "the-earths-chosen-savior-novel-english-translation",
+        "chapterPattern": "^The Earth.s Chosen Savior\\s*[-–—:]?\\s*Chapter\\s*(\\d{1,4})\\b",
+        "type": "Web Novel",
+        "genres": ["Action", "Adventure", "Fantasy", "Apocalypse", "Mystery"],
+        "author": "Oetu / Shinel",
+        "status": "Complete (368 chapters)",
+        "translationStatus": "Ongoing.",
+        "description": [
+            "One Monday morning, the Earth itself apologizes to humanity: its life is over, and the end is forty-two days away.",
+            "As monsters pour out of gates, people chosen as 'saviors' fight to stop it — among them Park Jeong-woo, a former game-company employee who intends to actually save the world."
+        ],
+        "associatedNames": [
+            "Terrestrial Savior Archetype",
+            "지구식 구원자 전형"
+        ],
+        "defaultChapter": 1,
+        "minChapter": 1,
+        "maxChapter": 5000,
+        "knownMaxChapter": 228
     }
 ]

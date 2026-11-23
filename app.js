@@ -1,4 +1,7 @@
-const BOUNDS_CACHE_TTL_MS = 60 * 60 * 1000;
+const COVER_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const CHAPTER_INDEX_TTL_MS = 60 * 60 * 1000;
+const INDEX_PAGE_SIZE = 100;
+const INDEX_MAX_PAGES = 40;
 const MAX_SAVED_SCROLL_POSITIONS = 50;
 const SCROLL_SAVE_DELAY_MS = 400;
 const CHAPTER_CACHE_LIMIT = 6;
@@ -14,12 +17,29 @@ const PROGRESS_UPDATED_AT_KEY = "progressUpdatedAt";
 const ALLOWED_INLINE_TAGS = new Set(["B", "STRONG", "I", "EM", "U", "S", "SUB", "SUP", "SPAN", "SMALL", "MARK", "BR", "IMG"]);
 const DROPPED_TAGS = new Set(["A", "SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "SVG", "VIDEO", "AUDIO", "FORM", "INPUT", "BUTTON"]);
 const CUT_PATTERNS = [
-    /\[?\s*T\/L\s*:/i,
+    /\[?\s*T[\/.]L\s*:/i,
     /ko-fi/i,
-    /buymeacoffee/i,
+    /buy\s*me\s*a\s*coffee|buymeacoffee/i,
+    /patreon/i,
+    /discord\.gg|join (?:our|my|the) discord/i,
+    /novelupdates/i,
+    /translated by\s*:/i,
     /previous\s+chapter/i,
-    /next\s+chapter/i
+    /next\s+chapter/i,
+    /choose the platform that works best/i,
+    /[\w.+-]+@[\w-]+\.[a-z]{2,}/i,
+    /≧▽≦/,
+    /^\d{1,4}\s*\/\s*\d{1,4}$/
 ];
+// A translator's note near the end usually starts a block of thanks/promotions; everything from it is dropped.
+const TRAILER_MARKERS = [
+    /^(?:T\/?L|T\/?N)(?:['’]s)?\s*(?:notes?)?\s*(?::|$)/i,
+    /^translator['’]?s?\s+notes?\b/i,
+    /^here are this week/i,
+    /^thanks for reading\b/i,
+    /^(?:hey|hi|hello)\s+(?:everyone|guys|all)\b/i
+];
+const TRAILER_ZONE = 0.8;
 
 let NOVELS = [];
 let activeNovel = null;
@@ -27,6 +47,8 @@ let currentChapter = 1;
 let minChapter = 1;
 let maxChapter = 5000;
 let detectedMaxChapter = null;
+// Sorted chapter numbers that actually exist on the source (from the chapter index), or null if unknown.
+let chapterList = null;
 let sortDescending = true;
 let readerFontSize = Number(localStorage.getItem("readerFontSize")) || 20;
 let isRestoringScroll = false;
@@ -240,105 +262,236 @@ function migrateLegacyScrollPositions() {
     }
 }
 
-/* ---------- Novel selection & bounds ---------- */
+/* ---------- Novel selection, covers & chapter index ---------- */
 
 function selectNovel(novel) {
     activeNovel = novel;
     minChapter = novel.detectedMin || novel.minChapter || 1;
     maxChapter = novel.maxChapter || 5000;
     detectedMaxChapter = novel.detectedMax || null;
+    chapterList = novel.chapters || null;
     currentChapter = getSavedChapter(novel.id) || novel.defaultChapter || 1;
-    fetchCoverAndBounds(novel);
+    fetchCover(novel);
+    getChapterIndex(novel);
 }
 
-function readCachedBounds(novel) {
+function escapeXml(text) {
+    return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[ch]));
+}
+
+// Generated cover for novels whose translator site has no cover image.
+function placeholderCover(title) {
+    const words = String(title).split(/\s+/);
+    const lines = [];
+    for (const word of words) {
+        const last = lines[lines.length - 1];
+        if (last && (last + " " + word).length <= 14) lines[lines.length - 1] = last + " " + word;
+        else lines.push(word);
+    }
+    const startY = 210 - (lines.length - 1) * 22;
+    const text = lines.slice(0, 7).map((line, i) =>
+        `<text x="150" y="${startY + i * 44}" text-anchor="middle" font-family="Georgia, serif" font-size="30" font-weight="700" fill="#e0e7ff">${escapeXml(line)}</text>`
+    ).join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#0b0b12"/></linearGradient></defs><rect width="300" height="420" fill="url(#g)"/><text x="150" y="80" text-anchor="middle" font-size="40" fill="#818cf8">◈</text>${text}</svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function coverFor(novel) {
+    return novel.cover || placeholderCover(novel.title);
+}
+
+function readCachedCover(novel) {
     const cached = readJson(`bounds_${novel.id}`, null);
     return cached && typeof cached === "object" ? cached : null;
 }
 
-function applyBounds(novel, bounds) {
-    if (!bounds) return;
-    if (bounds.cover) novel.cover = bounds.cover;
-    if (toChapterNumber(bounds.detectedMax)) novel.detectedMax = bounds.detectedMax;
-    if (toChapterNumber(bounds.detectedMin)) novel.detectedMin = bounds.detectedMin;
-
+function applyCover(novel, cover) {
+    if (!cover) return;
+    novel.cover = cover;
     const cardImg = document.getElementById(`card-img-${novel.id}`);
-    if (cardImg) cardImg.src = novel.cover;
+    if (cardImg) cardImg.src = cover;
     if (activeNovel && activeNovel.id === novel.id) {
         const detailImg = document.getElementById("detail-cover");
-        if (detailImg) detailImg.src = novel.cover;
+        if (detailImg) detailImg.src = cover;
     }
+}
+
+// Deduplicated so the startup loop and selectNovel() don't fire the same request twice.
+function fetchCover(novel) {
+    if (!novel.coverPromise) {
+        novel.coverPromise = loadCover(novel);
+    }
+    return novel.coverPromise;
+}
+
+async function loadCover(novel) {
+    if (!novel.infoSlug) return;
+    const cached = readCachedCover(novel);
+    if (cached && cached.cover) applyCover(novel, cached.cover);
+    if (cached && Date.now() - (cached.savedAt || 0) < COVER_CACHE_TTL_MS) return;
+
+    try {
+        const data = await fetchJson(`${getApiBase(novel)}slug:${encodeURIComponent(novel.infoSlug)}?fields=content,featured_image`);
+        const doc = htmlParser.parseFromString(data.content || "", "text/html");
+        const firstImg = doc.querySelector("img");
+        const cover = (firstImg && firstImg.getAttribute("src") || "").split("?")[0] || data.featured_image;
+        if (cover && /^https:\/\//i.test(cover)) {
+            applyCover(novel, cover);
+            localStorage.setItem(`bounds_${novel.id}`, JSON.stringify({ cover, savedAt: Date.now() }));
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function postsUrl(novel, params, { withCategory = true } = {}) {
+    const category = withCategory && novel.category ? `&category=${encodeURIComponent(novel.category)}` : "";
+    return `${getApiBase(novel)}?${params}${category}`;
+}
+
+// Builds an exact chapter number → post ID map from post titles, so chapters load by ID
+// instead of relying on full-text search (which misses low chapter numbers on many sites).
+async function fetchChapterIndex(novel) {
+    const pageUrl = page => postsUrl(novel, `number=${INDEX_PAGE_SIZE}&page=${page}&order=DESC&fields=ID,title`);
+    const first = await fetchJson(pageUrl(1));
+    const totalPages = Math.min(INDEX_MAX_PAGES, Math.ceil((first.found || 0) / INDEX_PAGE_SIZE));
+    const rest = await Promise.all(
+        Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => fetchJson(pageUrl(i + 2)))
+    );
+
+    const ids = new Map();
+    for (const data of [first, ...rest]) {
+        for (const post of data.posts || []) {
+            const num = parseChapterTitle(novel, post.title);
+            // Newest first, so a re-posted chapter wins over its older copy.
+            if (num && !ids.has(num)) ids.set(num, post.ID);
+        }
+    }
+    return [...ids.entries()].sort((a, b) => a[0] - b[0]);
+}
+
+function applyChapterIndex(novel, entries) {
+    novel.chapterIds = new Map(entries);
+    novel.chapters = entries.map(([num]) => num);
+    if (novel.chapters.length > 0) {
+        novel.detectedMin = novel.chapters[0];
+        novel.detectedMax = novel.chapters[novel.chapters.length - 1];
+    }
+    refreshBoundsUI(novel);
+    return novel.chapterIds;
+}
+
+function getChapterIndex(novel) {
+    if (!novel.indexPromise) {
+        novel.indexPromise = loadChapterIndex(novel);
+    }
+    return novel.indexPromise;
+}
+
+async function loadChapterIndex(novel) {
+    const cacheKey = `chapterIndex_${novel.id}`;
+    const cached = readJson(cacheKey, null);
+    const hasCache = Boolean(cached && Array.isArray(cached.entries) && cached.entries.length);
+    if (hasCache) {
+        novel.indexState = "ready";
+        applyChapterIndex(novel, cached.entries);
+        if (Date.now() - (cached.savedAt || 0) < CHAPTER_INDEX_TTL_MS) return novel.chapterIds;
+    } else {
+        novel.indexState = "loading";
+    }
+
+    try {
+        const entries = await fetchChapterIndex(novel);
+        if (entries.length > 0) {
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), entries }));
+            } catch (err) {
+                console.warn("Could not cache chapter index", err);
+            }
+            novel.indexState = "ready";
+            return applyChapterIndex(novel, entries);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+    if (!hasCache) {
+        novel.indexState = "failed";
+        refreshBoundsUI(novel);
+    }
+    return hasCache ? novel.chapterIds : null;
 }
 
 function refreshBoundsUI(novel) {
     if (!activeNovel || activeNovel.id !== novel.id) return;
     detectedMaxChapter = novel.detectedMax || null;
     minChapter = novel.detectedMin || novel.minChapter || 1;
+    chapterList = novel.chapters && novel.chapters.length ? novel.chapters : null;
     renderNovelChapterList(document.getElementById("novel-chapter-search").value);
     renderDropdownItems("");
     updateNavButtons();
 }
 
-// Deduplicated so the startup loop and selectNovel() don't fire the same requests twice.
-function fetchCoverAndBounds(novel) {
-    if (!novel.boundsPromise) {
-        novel.boundsPromise = loadCoverAndBounds(novel);
-    }
-    return novel.boundsPromise;
+// Chapters to offer in lists: the real index when known, nothing while it's still loading
+// (so readers can't pick chapters that don't exist), and the numeric range only if the index failed.
+function getAvailableChapters() {
+    if (chapterList) return chapterList;
+    if (activeNovel && activeNovel.indexState === "loading") return [];
+    const list = [];
+    for (let i = minChapter; i <= getUpperBound(); i++) list.push(i);
+    return list;
 }
 
-async function loadCoverAndBounds(novel) {
-    const cached = readCachedBounds(novel);
-    if (cached && Date.now() - (cached.savedAt || 0) < BOUNDS_CACHE_TTL_MS) {
-        applyBounds(novel, cached);
-        refreshBoundsUI(novel);
-        return;
-    }
-
-    try {
-        const fresh = await fetchBoundsFromSource(novel);
-        applyBounds(novel, fresh);
-        if (fresh.detectedMax) {
-            localStorage.setItem(`bounds_${novel.id}`, JSON.stringify({ ...fresh, savedAt: Date.now() }));
+// Previous/next chapter that actually exists (skips gaps like SMYS 189 → 301), or null at either end.
+function getAdjacentChapter(novel, chapNum, step) {
+    const list = novel && novel.chapters && novel.chapters.length ? novel.chapters : null;
+    if (list) {
+        if (step > 0) {
+            const next = list.find(n => n > chapNum);
+            return next === undefined ? null : next;
         }
-    } catch (err) {
-        console.error(err);
+        for (let i = list.length - 1; i >= 0; i--) {
+            if (list[i] < chapNum) return list[i];
+        }
+        return null;
     }
-    refreshBoundsUI(novel);
+    const target = chapNum + step;
+    return target >= minChapter && target <= getUpperBound() ? target : null;
 }
 
-async function fetchBoundsFromSource(novel) {
-    const apiBase = getApiBase(novel);
-    const [slugResult, latestResult, oldestResult] = await Promise.allSettled([
-        fetchJson(`${apiBase}slug:${novel.infoSlug}?fields=content,featured_image`),
-        fetchJson(`${apiBase}?number=10&order=DESC&fields=title,content`),
-        fetchJson(`${apiBase}?number=10&order=ASC&fields=title,content`)
-    ]);
+function goToAdjacentChapter(step) {
+    const target = getAdjacentChapter(activeNovel, currentChapter, step);
+    if (target !== null) loadChapter(target);
+}
 
-    const bounds = {};
-    if (slugResult.status === "fulfilled") {
-        const slugData = slugResult.value;
-        const doc = htmlParser.parseFromString(slugData.content || "", "text/html");
-        const firstImg = doc.querySelector("img");
-        if (firstImg && firstImg.src) {
-            bounds.cover = firstImg.src.split("?")[0];
-        } else if (slugData.featured_image) {
-            bounds.cover = slugData.featured_image;
-        }
+// Explains why a chapter is missing and offers the nearest chapters that do exist.
+function buildMissingChapterMessage(novel, chapNum) {
+    const wrap = createEl("div", "missing-chapter");
+    const chapters = novel.chapters || [];
+    let reason = "This chapter isn't on the translator's site.";
+    if (chapters.length && chapNum < chapters[0]) {
+        reason = `This translation starts at Chapter ${chapters[0]}.`;
+    } else if (chapters.length && chapNum > chapters[chapters.length - 1]) {
+        reason = `The latest chapter available from this translator is Chapter ${chapters[chapters.length - 1]}.`;
+    } else if (chapters.length) {
+        reason = "The translator skipped this chapter on their site.";
     }
-    if (latestResult.status === "fulfilled") {
-        const nums = (latestResult.value.posts || []).map(extractChapterNum).filter(Boolean);
-        if (nums.length > 0) bounds.detectedMax = Math.max(...nums);
-    }
-    if (oldestResult.status === "fulfilled") {
-        const nums = (oldestResult.value.posts || []).map(extractChapterNum).filter(Boolean);
-        if (nums.length > 0) bounds.detectedMin = Math.min(...nums);
-    }
+    wrap.appendChild(createEl("p", null, reason));
 
-    if ([slugResult, latestResult, oldestResult].every(r => r.status === "rejected")) {
-        throw latestResult.reason;
+    const actions = createEl("div", "missing-chapter-actions");
+    const prev = getAdjacentChapter(novel, chapNum, -1);
+    const next = getAdjacentChapter(novel, chapNum, 1);
+    if (prev !== null) {
+        const btn = createEl("button", "bottom-nav-btn", `← Chapter ${prev}`);
+        btn.addEventListener("click", () => loadChapter(prev));
+        actions.appendChild(btn);
     }
-    return bounds;
+    if (next !== null) {
+        const btn = createEl("button", "bottom-nav-btn primary", `Chapter ${next} →`);
+        btn.addEventListener("click", () => loadChapter(next));
+        actions.appendChild(btn);
+    }
+    wrap.appendChild(actions);
+    return wrap;
 }
 
 /* ---------- Auto-scroll ---------- */
@@ -436,10 +589,11 @@ function toggleAutoScroll() {
 
 function scheduleAutoAdvance() {
     if (!autoAdvanceEnabled || !autoScrollEnabled || !isReaderActive()) return;
-    if (currentChapter >= getUpperBound()) return;
+    const next = getAdjacentChapter(activeNovel, currentChapter, 1);
+    if (next === null) return;
     autoAdvanceTimer = setTimeout(() => {
         autoAdvanceTimer = null;
-        if (isReaderActive()) loadChapter(currentChapter + 1);
+        if (isReaderActive()) loadChapter(next);
     }, AUTO_ADVANCE_DELAY_MS);
     updateAutoScrollUI();
 }
@@ -540,7 +694,7 @@ function renderLibraryGrid(filterQuery = "") {
         const coverWrap = createEl("div", "card-cover-wrap");
         const img = createEl("img");
         img.id = `card-img-${novel.id}`;
-        img.src = novel.cover;
+        img.src = coverFor(novel);
         img.alt = novel.title;
         coverWrap.appendChild(img);
         coverWrap.appendChild(createEl("div", "card-badge", novel.type));
@@ -563,7 +717,7 @@ function renderNovelDetails(novel) {
     const savedChap = getSavedChapter(novel.id);
     currentChapter = savedChap || novel.defaultChapter;
 
-    document.getElementById("detail-cover").src = novel.cover;
+    document.getElementById("detail-cover").src = coverFor(novel);
     document.getElementById("detail-title").textContent = novel.title;
     const translatorEl = document.getElementById("detail-translator");
     if (translatorEl) {
@@ -572,6 +726,8 @@ function renderNovelDetails(novel) {
     document.getElementById("detail-type").textContent = novel.type;
     document.getElementById("detail-author").textContent = novel.author;
     document.getElementById("detail-status").textContent = novel.status;
+    document.getElementById("detail-translation").textContent = novel.translationStatus || "";
+    document.getElementById("detail-translation-row").hidden = !novel.translationStatus;
 
     const continueBtn = document.getElementById("continue-reading-btn");
     continueBtn.textContent = savedChap
@@ -599,18 +755,15 @@ function renderNovelChapterList(filterText = "") {
 
     listEl.replaceChildren();
     const cleanFilter = filterText.replace(/[^0-9]/g, "");
-    const upperBound = getUpperBound();
-    const lowerBound = minChapter || 1;
+    const available = getAvailableChapters();
     const recentList = getRecentChapters(activeNovel.id);
     const savedChap = getSavedChapter(activeNovel.id);
 
-    countLabel.textContent = `List of Chapters (${lowerBound} – ${upperBound})`;
+    countLabel.textContent = available.length
+        ? `List of Chapters (${available.length} · ${available[0]} – ${available[available.length - 1]})`
+        : (activeNovel.indexState === "loading" ? "List of Chapters (loading…)" : "List of Chapters");
 
-    const chapters = [];
-    for (let i = lowerBound; i <= upperBound; i++) {
-        if (cleanFilter && !String(i).includes(cleanFilter)) continue;
-        chapters.push(i);
-    }
+    const chapters = available.filter(i => !cleanFilter || String(i).includes(cleanFilter));
 
     if (sortDescending) {
         chapters.reverse();
@@ -642,9 +795,28 @@ function parseChapterHeading(text) {
     return match ? Number(match[1]) : null;
 }
 
-function extractChapterNum(post) {
-    const fromTitle = parseChapterHeading(decodeHtml(post.title));
-    if (fromTitle) return fromTitle;
+// Novels can define `chapterPattern` (a regex whose first group is the chapter number) for sites
+// whose titles don't start with "Chapter N", e.g. "Talent Swallowing Magician Ch. 12".
+function getChapterMatcher(novel) {
+    if (novel.chapterRegex === undefined) {
+        novel.chapterRegex = novel.chapterPattern ? new RegExp(novel.chapterPattern, "i") : null;
+    }
+    return novel.chapterRegex;
+}
+
+function parseChapterTitle(novel, title) {
+    const text = decodeHtml(title);
+    const matcher = getChapterMatcher(novel);
+    if (matcher) {
+        const match = text.match(matcher);
+        return match ? toChapterNumber(match[1]) : null;
+    }
+    return parseChapterHeading(text);
+}
+
+function extractChapterNum(post, novel) {
+    const fromTitle = parseChapterTitle(novel, post.title);
+    if (fromTitle || getChapterMatcher(novel)) return fromTitle;
 
     const doc = htmlParser.parseFromString(post.content || "", "text/html");
     const paragraphs = doc.querySelectorAll("p");
@@ -655,8 +827,8 @@ function extractChapterNum(post) {
     return null;
 }
 
-function findMatchingPost(posts, targetNum) {
-    return posts.find(post => extractChapterNum(post) === targetNum) || null;
+function findMatchingPost(posts, targetNum, novel) {
+    return posts.find(post => extractChapterNum(post, novel) === targetNum) || null;
 }
 
 // Rebuilds paragraphs from scratch keeping only harmless inline formatting, so markup
@@ -688,36 +860,72 @@ function appendSanitizedChildren(source, target) {
     }
 }
 
-function buildChapterContent(rawHtml) {
+function buildChapterContent(rawHtml, novel, chapNum) {
     const doc = htmlParser.parseFromString(rawHtml || "", "text/html");
-    const fragment = document.createDocumentFragment();
+    const paragraphs = Array.from(doc.querySelectorAll("p")).filter(p => p.textContent.trim());
 
-    for (const p of doc.querySelectorAll("p")) {
+    let end = paragraphs.length;
+    for (let i = paragraphs.length - 1; i >= Math.floor(paragraphs.length * TRAILER_ZONE); i--) {
+        const text = paragraphs[i].textContent.trim();
+        if (TRAILER_MARKERS.some(pattern => pattern.test(text))) end = i;
+    }
+
+    const fragment = document.createDocumentFragment();
+    paragraphs.slice(0, end).forEach((p, i) => {
         const text = p.textContent.trim();
-        if (!text) continue;
-        if (CUT_PATTERNS.some(pattern => pattern.test(text))) continue;
+        if (CUT_PATTERNS.some(pattern => pattern.test(text))) return;
+        // Many posts repeat the chapter heading (e.g. "301") as their first paragraph.
+        if (i < 3 && (parseChapterHeading(text) === chapNum || parseChapterTitle(novel, text) === chapNum)) return;
 
         const clean = document.createElement("p");
         appendSanitizedChildren(p, clean);
         if (clean.textContent.trim()) fragment.appendChild(clean);
-    }
+    });
     return fragment;
+}
+
+function safeHttpUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : null;
+    } catch {
+        return null;
+    }
+}
+
+function externalLink(href, text, className) {
+    const link = createEl("a", className, text);
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    return link;
 }
 
 function renderSourceLink(url) {
     debugUrlEl.replaceChildren();
-    let parsed;
-    try {
-        parsed = new URL(url);
-    } catch {
-        return;
+    const href = safeHttpUrl(url);
+    if (href) debugUrlEl.appendChild(externalLink(href, `Source: ${href} ↗`));
+}
+
+// Bottom-of-chapter credit with the translator's own donation links (configured per novel in novels.json).
+function updateSupportPanel(novel, chapterUrl) {
+    const panel = document.getElementById("support-panel");
+    const nameEl = document.getElementById("support-translator");
+    const linksEl = document.getElementById("support-links");
+    nameEl.replaceChildren();
+    linksEl.replaceChildren();
+
+    const translator = novel.translatorName || novel.translator;
+    const siteUrl = safeHttpUrl(novel.translatorUrl || `https://${novel.siteDomain}/`);
+    nameEl.appendChild(siteUrl ? externalLink(siteUrl, translator) : document.createTextNode(translator));
+
+    const chapterHref = safeHttpUrl(chapterUrl);
+    if (chapterHref) linksEl.appendChild(externalLink(chapterHref, "Read on their site ↗", "support-btn"));
+    for (const { label, url } of novel.supportLinks || []) {
+        const href = safeHttpUrl(url);
+        if (href) linksEl.appendChild(externalLink(href, `${label} ↗`, "support-btn primary"));
     }
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
-    const link = createEl("a", null, `Source: ${parsed.href} ↗`);
-    link.href = parsed.href;
-    link.target = "_blank";
-    link.rel = "noopener";
-    debugUrlEl.appendChild(link);
+    panel.hidden = false;
 }
 
 /* ---------- Chapter loading ---------- */
@@ -732,8 +940,7 @@ function getChapterPost(novel, chapNum) {
         return cached;
     }
 
-    const request = fetchJson(`${getApiBase(novel)}?search=${chapNum}&number=20&fields=ID,title,content,URL`)
-        .then(data => findMatchingPost(data.posts || [], chapNum));
+    const request = resolveChapterPost(novel, chapNum);
     request.catch(() => chapterCache.delete(key));
 
     chapterCache.set(key, request);
@@ -743,15 +950,27 @@ function getChapterPost(novel, chapNum) {
     return request;
 }
 
+async function resolveChapterPost(novel, chapNum) {
+    const ids = await getChapterIndex(novel);
+    const postId = ids && ids.get(chapNum);
+    if (postId) {
+        return fetchJson(`${getApiBase(novel)}${postId}?fields=ID,title,content,URL`);
+    }
+    // Not in the index (index unavailable, or a chapter published after it was cached): fall back to search.
+    // The category filter is skipped here because WordPress.com returns nothing when it's combined with search.
+    const data = await fetchJson(postsUrl(novel, `search=${chapNum}&number=20&fields=ID,title,content,URL`, { withCategory: false }));
+    return findMatchingPost(data.posts || [], chapNum, novel);
+}
+
 function prefetchNextChapter(novel, chapNum) {
-    const next = chapNum + 1;
-    if (next > getUpperBound()) return;
+    const next = getAdjacentChapter(novel, chapNum, 1);
+    if (next === null) return;
     getChapterPost(novel, next).catch(() => {});
 }
 
 function updateNavButtons() {
-    const atMin = currentChapter <= minChapter;
-    const atMax = currentChapter >= getUpperBound();
+    const atMin = !activeNovel || getAdjacentChapter(activeNovel, currentChapter, -1) === null;
+    const atMax = !activeNovel || getAdjacentChapter(activeNovel, currentChapter, 1) === null;
     document.getElementById("prev-top").disabled = atMin;
     document.getElementById("prev-bottom").disabled = atMin;
     document.getElementById("next-top").disabled = atMax;
@@ -794,8 +1013,6 @@ async function loadChapter(chapterNum, updateUrl = true) {
     const novel = activeNovel;
 
     currentChapter = num;
-    setProgressItem(`lastRead_${novel.id}`, currentChapter);
-    addRecentChapter(novel.id, currentChapter);
     chapterInput.value = `Chapter ${currentChapter}`;
     updateNavButtons();
 
@@ -806,6 +1023,7 @@ async function loadChapter(chapterNum, updateUrl = true) {
     titleEl.textContent = `Loading Chapter ${currentChapter}...`;
     debugUrlEl.textContent = "Fetching chapter from source...";
     contentEl.replaceChildren();
+    updateSupportPanel(novel, null);
     progressBar.style.width = "0%";
     isRestoringScroll = true;
     window.scrollTo(0, 0);
@@ -815,16 +1033,22 @@ async function loadChapter(chapterNum, updateUrl = true) {
         if (token !== chapterLoadToken) return;
 
         if (!post) {
-            titleEl.textContent = `Chapter ${num} Not Found`;
-            debugUrlEl.textContent = "No matching source post";
-            contentEl.replaceChildren(createEl("p", null, `Could not find a verified match for Chapter ${num} in search results.`));
+            titleEl.textContent = `Chapter ${num} Not Available`;
+            debugUrlEl.textContent = "";
+            contentEl.replaceChildren(buildMissingChapterMessage(novel, num));
+            updateSupportPanel(novel, null);
+            updateNavButtons();
             isRestoringScroll = false;
             return;
         }
 
+        // Only chapters that actually loaded count as reading progress.
+        setProgressItem(`lastRead_${novel.id}`, num);
+        addRecentChapter(novel.id, num);
         titleEl.textContent = decodeHtml(post.title) || `Chapter ${num}`;
         renderSourceLink(post.URL);
-        contentEl.replaceChildren(buildChapterContent(post.content));
+        contentEl.replaceChildren(buildChapterContent(post.content, novel, num));
+        updateSupportPanel(novel, post.URL);
         restoreScrollPosition(novel.id, num, token);
         prefetchNextChapter(novel, num);
     } catch (err) {
@@ -842,10 +1066,9 @@ function renderDropdownItems(filterText) {
     dropdownMenu.replaceChildren();
     if (!activeNovel) return;
     const cleanFilter = filterText.replace(/[^0-9]/g, "");
-    const upperLimit = getUpperBound();
 
     const fragment = document.createDocumentFragment();
-    for (let i = minChapter; i <= upperLimit; i++) {
+    for (const i of getAvailableChapters()) {
         if (cleanFilter && !String(i).includes(cleanFilter)) continue;
 
         const item = createEl("div", "dropdown-item" + (i === currentChapter ? " active" : ""), `Chapter ${i}`);
@@ -1136,10 +1359,10 @@ window.addEventListener("touchstart", () => {
     }, { passive: true });
 });
 
-document.getElementById("prev-top").addEventListener("click", () => loadChapter(currentChapter - 1));
-document.getElementById("next-top").addEventListener("click", () => loadChapter(currentChapter + 1));
-document.getElementById("prev-bottom").addEventListener("click", () => loadChapter(currentChapter - 1));
-document.getElementById("next-bottom").addEventListener("click", () => loadChapter(currentChapter + 1));
+document.getElementById("prev-top").addEventListener("click", () => goToAdjacentChapter(-1));
+document.getElementById("next-top").addEventListener("click", () => goToAdjacentChapter(1));
+document.getElementById("prev-bottom").addEventListener("click", () => goToAdjacentChapter(-1));
+document.getElementById("next-bottom").addEventListener("click", () => goToAdjacentChapter(1));
 document.getElementById("library-search-input").addEventListener("input", (e) => {
     renderLibraryGrid(e.target.value);
 });
@@ -1251,9 +1474,12 @@ async function init() {
         return;
     }
 
-    NOVELS.forEach(novel => applyBounds(novel, readCachedBounds(novel)));
+    NOVELS.forEach(novel => {
+        const cached = readCachedCover(novel);
+        if (cached && cached.cover) novel.cover = cached.cover;
+    });
     activeNovel = NOVELS[0];
-    NOVELS.forEach(novel => fetchCoverAndBounds(novel));
+    NOVELS.forEach(novel => fetchCover(novel));
     handleRouteFromUrl();
 }
 

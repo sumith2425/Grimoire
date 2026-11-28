@@ -167,6 +167,7 @@ function fetchJsonp(url) {
             cleanup();
             reject(new Error("Couldn't reach the source site. Check your internet connection."));
         };
+        script.referrerPolicy = "no-referrer";
         script.src = `${url}${url.includes("?") ? "&" : "?"}callback=${callbackName}`;
         document.head.appendChild(script);
     });
@@ -177,7 +178,7 @@ async function fetchJson(url) {
 
     let response;
     try {
-        response = await fetch(url);
+        response = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
     } catch (err) {
         // fetch() only throws on network/CORS failures, which JSONP can often get around.
         console.warn("fetch() blocked, switching to JSONP:", err);

@@ -135,8 +135,55 @@ function getApiBase(novel) {
     return `https://public-api.wordpress.com/rest/v1.1/sites/${novel.siteDomain}/posts/`;
 }
 
+const JSONP_TIMEOUT_MS = 20000;
+let jsonpCounter = 0;
+// Some networks (e.g. office security proxies) block cross-origin fetch() but allow plain script loads.
+// After the first network/CORS failure, all WordPress requests go through JSONP for the rest of the visit.
+let useJsonp = false;
+
+function fetchJsonp(url) {
+    return new Promise((resolve, reject) => {
+        const callbackName = `__grimoireJsonp${Date.now()}_${jsonpCounter++}`;
+        const script = document.createElement("script");
+        const cleanup = () => {
+            clearTimeout(timer);
+            delete window[callbackName];
+            script.remove();
+        };
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error("The source site took too long to respond."));
+        }, JSONP_TIMEOUT_MS);
+
+        window[callbackName] = (data) => {
+            cleanup();
+            if (data && data.error) {
+                reject(new Error(`Source site error: ${data.message || data.error}`));
+            } else {
+                resolve(data);
+            }
+        };
+        script.onerror = () => {
+            cleanup();
+            reject(new Error("Couldn't reach the source site. Check your internet connection."));
+        };
+        script.src = `${url}${url.includes("?") ? "&" : "?"}callback=${callbackName}`;
+        document.head.appendChild(script);
+    });
+}
+
 async function fetchJson(url) {
-    const response = await fetch(url);
+    if (useJsonp) return fetchJsonp(url);
+
+    let response;
+    try {
+        response = await fetch(url);
+    } catch (err) {
+        // fetch() only throws on network/CORS failures, which JSONP can often get around.
+        console.warn("fetch() blocked, switching to JSONP:", err);
+        useJsonp = true;
+        return fetchJsonp(url);
+    }
     if (!response.ok) {
         throw new Error(`Source site responded with ${response.status} ${response.statusText}`.trim());
     }

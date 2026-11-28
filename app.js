@@ -138,7 +138,7 @@ function getApiBase(novel) {
 const WORDPRESS_API = "https://public-api.wordpress.com/rest/v1.1";
 // Optional relay (see proxy/worker.js) used when the browser can't reach WordPress directly,
 // e.g. when WordPress's bot check challenges the reader's browser. Leave empty to disable.
-const WORDPRESS_RELAY_URL = "";
+const WORDPRESS_RELAY_URL = "https://grimoire-relay.sumithsatkuri123.workers.dev";
 const JSONP_TIMEOUT_MS = 20000;
 let jsonpCounter = 0;
 // After the first network/CORS failure, requests go through the relay (or JSONP if no relay

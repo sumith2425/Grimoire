@@ -36,6 +36,16 @@ The site is static (GitHub Pages), so accounts and saved progress use Firebase's
 
 The config values are public identifiers, not secrets — the Firestore rules ensure each user can only read and write their own progress.
 
+### Relay for Blocked Browsers (optional, free)
+WordPress.com sometimes shows a bot check to a browser, which blocks the site's chapter requests (the console shows `403` / CORS errors while other browsers work). Grimoire can then fall back to a small relay on Cloudflare's free Workers plan:
+
+1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com) (free plan).
+2. **Workers & Pages → Create → Create Worker**, name it (e.g. `grimoire-relay`), click **Deploy**.
+3. **Edit code**, replace everything with [`proxy/worker.js`](./proxy/worker.js), click **Deploy**.
+4. Copy the worker URL (e.g. `https://grimoire-relay.<you>.workers.dev`) into `WORDPRESS_RELAY_URL` at the top of [`app.js`](./app.js).
+
+The relay is only used after a direct request fails, and it only serves the translator sites listed in `ALLOWED_SITES` — add a site there when you add a novel from a new translator.
+
 ### Contributing & Adding Novels
 This is just a personal project, but feel free to make open-source contributions to it. 
 

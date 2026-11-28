@@ -132,14 +132,18 @@ function toChapterNumber(value) {
 }
 
 function getApiBase(novel) {
-    return `https://public-api.wordpress.com/rest/v1.1/sites/${novel.siteDomain}/posts/`;
+    return `${WORDPRESS_API}/sites/${novel.siteDomain}/posts/`;
 }
 
+const WORDPRESS_API = "https://public-api.wordpress.com/rest/v1.1";
+// Optional relay (see proxy/worker.js) used when the browser can't reach WordPress directly,
+// e.g. when WordPress's bot check challenges the reader's browser. Leave empty to disable.
+const WORDPRESS_RELAY_URL = "";
 const JSONP_TIMEOUT_MS = 20000;
 let jsonpCounter = 0;
-// Some networks (e.g. office security proxies) block cross-origin fetch() but allow plain script loads.
-// After the first network/CORS failure, all WordPress requests go through JSONP for the rest of the visit.
-let useJsonp = false;
+// After the first network/CORS failure, requests go through the relay (or JSONP if no relay
+// is configured) for the rest of the visit instead of retrying the blocked direct route.
+let fetchMode = "direct";
 
 function fetchJsonp(url) {
     return new Promise((resolve, reject) => {
@@ -173,22 +177,44 @@ function fetchJsonp(url) {
     });
 }
 
-async function fetchJson(url) {
-    if (useJsonp) return fetchJsonp(url);
-
-    let response;
-    try {
-        response = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
-    } catch (err) {
-        // fetch() only throws on network/CORS failures, which JSONP can often get around.
-        console.warn("fetch() blocked, switching to JSONP:", err);
-        useJsonp = true;
-        return fetchJsonp(url);
-    }
+async function fetchDirect(url) {
+    const response = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
     if (!response.ok) {
-        throw new Error(`Source site responded with ${response.status} ${response.statusText}`.trim());
+        const error = new Error(`Source site responded with ${response.status} ${response.statusText}`.trim());
+        error.status = response.status;
+        throw error;
     }
     return response.json();
+}
+
+// Network/CORS failures (TypeError) and 403/429 mean WordPress is blocking or rate-limiting this browser,
+// e.g. its bot check, whose 403 page usually has no CORS header and so surfaces as a TypeError.
+function isBlockedError(err) {
+    return err instanceof TypeError || err.status === 403 || err.status === 429;
+}
+
+function relayUrl(url) {
+    return WORDPRESS_RELAY_URL.replace(/\/+$/, "") + url.slice(WORDPRESS_API.length);
+}
+
+async function fetchJson(url) {
+    const relayAvailable = Boolean(WORDPRESS_RELAY_URL) && url.startsWith(WORDPRESS_API);
+    if (fetchMode === "relay" && relayAvailable) return fetchDirect(relayUrl(url));
+    if (fetchMode === "jsonp") return fetchJsonp(url);
+
+    try {
+        return await fetchDirect(url);
+    } catch (err) {
+        if (!isBlockedError(err)) throw err;
+        if (relayAvailable) {
+            console.warn("Direct WordPress request blocked, switching to relay:", err);
+            fetchMode = "relay";
+            return fetchDirect(relayUrl(url));
+        }
+        console.warn("Direct WordPress request blocked, switching to JSONP:", err);
+        fetchMode = "jsonp";
+        return fetchJsonp(url);
+    }
 }
 
 function getUpperBound() {
